@@ -1,6 +1,6 @@
 /**
  * Munfollow - Massive Unfollow
- * Creator: https://github.com/Miabeyefendi/munfollow
+ * Creator: https://github.com/Miabeyefendi/IG-Munfollow
  * Version: 4.0.0 (Multi-language, Filters, Sorting)
  */
 
