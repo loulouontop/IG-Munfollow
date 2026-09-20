@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.0.0 (Multi-language, Filters, Sorting)
+ * Version: 4.1.0 (Multi-language, Filters, Sorting)
  */
 
 (function () {
@@ -634,19 +634,42 @@
         updateStats();
     });
 
-    async function fetchFollowing(cursor = '') {
-        const url = cursor
-            ? `https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${userId}","include_reel":"true","fetch_mutual":"false","first":"50","after":"${cursor}"}`
-            : `https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${userId}","include_reel":"true","fetch_mutual":"false","first":"50"}`;
+    // Eski graphql query_hash ve /web/friendships uclari kaldirildi, api/v1 kullaniliyor
+    const apiHeaders = {
+        'x-ig-app-id': '936619743392459',
+        'x-csrftoken': csrfToken
+    };
 
+    async function fetchFriendshipPage(type, maxId = '') {
+        const url = `https://www.instagram.com/api/v1/friendships/${userId}/${type}/?count=100&search_surface=follow_list_page${maxId ? `&max_id=${maxId}` : ''}`;
         try {
-            const res = await fetch(url);
-            const json = await res.json();
-            return json.data.user.edge_follow;
+            const res = await fetch(url, { headers: apiHeaders });
+            if (!res.ok) return null;
+            return await res.json();
         } catch (err) {
             console.error(err);
             return null;
         }
+    }
+
+    // Yeni uc follows_viewer vermiyor, takipci listesi cekilip fark alinir
+    async function fetchFollowerIds() {
+        const ids = new Set();
+        let maxId = '';
+        do {
+            const data = await fetchFriendshipPage('followers', maxId);
+            if (!data) return null;
+            const before = ids.size;
+            (data.users || []).forEach(u => ids.add(String(u.pk)));
+            console.log(`[Munfollow] followers scanned: ${ids.size}`);
+            listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')} followers: ${ids.size}</div>`;
+            const next = data.next_max_id ? String(data.next_max_id) : '';
+            // Son sayfada da next_max_id gelebiliyor, yeni kullanici yoksa ya da ayni imlecse dur
+            if (!next || next === maxId || ids.size === before) break;
+            maxId = next;
+            await sleep(Math.floor(Math.random() * 1000) + 1000);
+        } while (true);
+        return ids;
     }
 
     async function fetchCloseFriends() {
@@ -684,6 +707,16 @@
         updateStats();
 
         await fetchCloseFriends();
+        listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')}</div>`;
+        const followerIds = await fetchFollowerIds();
+        if (!followerIds) {
+            alert('Error fetching followers. Check your connection or try refreshing.');
+            isScanning = false;
+            els.scanBtn.disabled = false;
+            els.scanBtn.style.opacity = '1';
+            updateTranslations();
+            return;
+        }
 
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
@@ -691,19 +724,30 @@
 
         let hasNextPage = true;
         let cursor = '';
-        let totalCount = 0;
+        const seenIds = new Set();
 
         while (hasNextPage) {
-            const data = await fetchFollowing(cursor);
+            const data = await fetchFriendshipPage('following', cursor);
             if (!data) {
                 alert('Error fetching data. Check your connection or try refreshing.');
                 break;
             }
 
-            if (totalCount === 0) totalCount = data.count;
-
-            data.edges.forEach(edge => {
-                const user = edge.node;
+            const before = allUsers.length;
+            (data.users || []).forEach(u => {
+                if (seenIds.has(String(u.pk))) return;
+                seenIds.add(String(u.pk));
+                // Eski graphql node sekline cevir, render kodu degismedi
+                const user = {
+                    id: String(u.pk),
+                    username: u.username,
+                    full_name: u.full_name,
+                    is_private: u.is_private,
+                    is_verified: u.is_verified,
+                    profile_pic_url: u.profile_pic_url,
+                    has_anonymous_profile_picture: u.has_anonymous_profile_picture,
+                    follows_viewer: followerIds.has(String(u.pk))
+                };
                 allUsers.push(user);
                 if (!user.follows_viewer) {
                     nonFollowersCount++;
@@ -712,11 +756,13 @@
                 }
             });
 
-            progressBar.style.width = `${(allUsers.length / totalCount) * 100}%`;
+            console.log(`[Munfollow] following scanned: ${allUsers.length}`);
+            applyFilterAndSort();
+            const next = data.next_max_id ? String(data.next_max_id) : '';
+            hasNextPage = !!next && next !== cursor && allUsers.length > before;
+            cursor = next;
+            progressBar.style.width = hasNextPage ? '50%' : '100%';
             updateStats();
-
-            hasNextPage = data.page_info.has_next_page;
-            cursor = data.page_info.end_cursor;
 
             if (hasNextPage) {
                 await sleep(Math.floor(Math.random() * 1000) + 1000);
@@ -758,12 +804,13 @@
             const uid = usersToUnfollow[i];
 
             try {
-                const res = await fetch(`https://www.instagram.com/web/friendships/${uid}/unfollow/`, {
+                const res = await fetch(`https://www.instagram.com/api/v1/friendships/destroy/${uid}/`, {
                     method: 'POST',
                     headers: {
-                        'content-type': 'application/x-www-form-urlencoded',
-                        'x-csrftoken': csrfToken
-                    }
+                        ...apiHeaders,
+                        'content-type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `user_id=${uid}`
                 });
 
                 if (res.ok) {
