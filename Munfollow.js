@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.1.0 (Multi-language, Filters, Sorting)
+ * Version: 4.2.0 (Multi-language, Filters, Sorting)
  */
 
 (function () {
@@ -415,6 +415,19 @@
     progressContainer.appendChild(progressBar);
     contentArea.insertBefore(progressContainer, listContainer);
 
+    // Konsol yerine panel ici debug kutusu, kopyalanabilir
+    const debugBox = document.createElement('textarea');
+    debugBox.readOnly = true;
+    debugBox.style.cssText = 'height: 140px; width: 100%; box-sizing: border-box; resize: vertical; background: #09090b; color: #a1a1aa; border: 0; border-top: 1px solid #27272a; padding: 8px 12px; font: 11px/1.4 monospace; outline: none;';
+    contentArea.appendChild(debugBox);
+    function dbg(msg) {
+        const line = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+        console.log('[Munfollow] ' + msg);
+        debugBox.value += line + '\n';
+        debugBox.scrollTop = debugBox.scrollHeight;
+    }
+    dbg('Munfollow 4.1.0 loaded, user ' + userId);
+
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
         els.appDesc.textContent = t('appDesc');
@@ -637,17 +650,28 @@
     // Eski graphql query_hash ve /web/friendships uclari kaldirildi, api/v1 kullaniliyor
     const apiHeaders = {
         'x-ig-app-id': '936619743392459',
-        'x-csrftoken': csrfToken
+        'x-csrftoken': csrfToken,
+        'x-asbd-id': '129477',
+        'x-requested-with': 'XMLHttpRequest',
+        'x-instagram-ajax': '1',
+        'x-ig-www-claim': (() => { try { return sessionStorage.getItem('www-claim-v2') || '0'; } catch (e) { return '0'; } })()
     };
 
+    let lastNetError = '';
     async function fetchFriendshipPage(type, maxId = '') {
         const url = `https://www.instagram.com/api/v1/friendships/${userId}/${type}/?count=100&search_surface=follow_list_page${maxId ? `&max_id=${maxId}` : ''}`;
         try {
             const res = await fetch(url, { headers: apiHeaders });
-            if (!res.ok) return null;
-            return await res.json();
+            const raw = await res.text();
+            if (!res.ok) {
+                lastNetError = `${type} HTTP ${res.status}: ${raw.slice(0, 300)}`;
+                dbg(lastNetError);
+                return null;
+            }
+            return JSON.parse(raw);
         } catch (err) {
-            console.error(err);
+            lastNetError = `${type}: ${err.message}`;
+            dbg(lastNetError);
             return null;
         }
     }
@@ -661,7 +685,7 @@
             if (!data) return null;
             const before = ids.size;
             (data.users || []).forEach(u => ids.add(String(u.pk)));
-            console.log(`[Munfollow] followers scanned: ${ids.size}`);
+            dbg(`followers scanned: ${ids.size}`);
             listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')} followers: ${ids.size}</div>`;
             const next = data.next_max_id ? String(data.next_max_id) : '';
             // Son sayfada da next_max_id gelebiliyor, yeni kullanici yoksa ya da ayni imlecse dur
@@ -693,6 +717,18 @@
 
     els.scanBtn.addEventListener('click', async () => {
         if (isScanning) return;
+        try {
+            await runScan();
+        } catch (err) {
+            dbg('Scan crashed: ' + (err && err.stack ? err.stack.slice(0, 400) : err));
+            isScanning = false;
+            els.scanBtn.disabled = false;
+            els.scanBtn.style.opacity = '1';
+            updateTranslations();
+        }
+    });
+
+    async function runScan() {
         isScanning = true;
         els.scanBtn.disabled = true;
         updateTranslations();
@@ -710,7 +746,7 @@
         listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')}</div>`;
         const followerIds = await fetchFollowerIds();
         if (!followerIds) {
-            alert('Error fetching followers. Check your connection or try refreshing.');
+            alert('Error fetching followers.\n' + lastNetError);
             isScanning = false;
             els.scanBtn.disabled = false;
             els.scanBtn.style.opacity = '1';
@@ -729,7 +765,7 @@
         while (hasNextPage) {
             const data = await fetchFriendshipPage('following', cursor);
             if (!data) {
-                alert('Error fetching data. Check your connection or try refreshing.');
+                alert('Error fetching following.\n' + lastNetError);
                 break;
             }
 
@@ -756,7 +792,7 @@
                 }
             });
 
-            console.log(`[Munfollow] following scanned: ${allUsers.length}`);
+            dbg(`following scanned: ${allUsers.length}`);
             applyFilterAndSort();
             const next = data.next_max_id ? String(data.next_max_id) : '';
             hasNextPage = !!next && next !== cursor && allUsers.length > before;
@@ -776,7 +812,7 @@
 
         updateTranslations();
         applyFilterAndSort();
-    });
+    }
 
     els.unfollowBtn.addEventListener('click', async () => {
         if (isUnfollowing || selectedUserIds.size === 0) return;
@@ -795,6 +831,8 @@
 
         const usersToUnfollow = Array.from(selectedUserIds);
         let processedCount = 0;
+        let rejectedCount = 0;
+        let firstReject = '';
 
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
@@ -804,16 +842,35 @@
             const uid = usersToUnfollow[i];
 
             try {
-                const res = await fetch(`https://www.instagram.com/api/v1/friendships/destroy/${uid}/`, {
+                // friendships/destroy 200 ile HTML donduruyor, calisan yol web/friendships/unfollow
+                const res = await fetch(`https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`, {
                     method: 'POST',
-                    headers: {
-                        ...apiHeaders,
-                        'content-type': 'application/x-www-form-urlencoded'
-                    },
-                    body: `user_id=${uid}`
+                    headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
+                    body: `container_module=profile&nav_chain=&user_id=${uid}`
                 });
+                const raw = await res.text();
+                const attempts = [`unfollow HTTP ${res.status} ${raw.slice(0, 200)}`];
+                let json = null;
+                try { json = JSON.parse(raw); } catch (e) {}
+                let unfollowed = res.ok && json && json.status === 'ok';
 
-                if (res.ok) {
+                // 200 donmesi yetmiyor, show ile gercek durum okunur
+                await sleep(1000);
+                const showRes = await fetch(`https://www.instagram.com/api/v1/friendships/show/${uid}/`, { headers: apiHeaders });
+                const showRaw = await showRes.text();
+                let show = null;
+                try { show = JSON.parse(showRaw); } catch (e) {}
+                if (show && typeof show.following === 'boolean') unfollowed = show.following === false;
+                attempts.push(`show HTTP ${showRes.status} ${showRaw.slice(0, 200)}`);
+
+                const report = attempts.join(' | ');
+                dbg(`unfollow ${uid} -> ${unfollowed ? 'OK' : 'REJECTED'} :: ${report}`);
+                if (!unfollowed) {
+                    rejectedCount++;
+                    if (!firstReject) firstReject = report;
+                }
+
+                if (unfollowed) {
                     successCount++;
 
                     selectedUserIds.delete(uid);
@@ -828,7 +885,9 @@
                     console.error('Failed to unfollow', uid);
                 }
             } catch (err) {
-                console.error('Error unfollowing', uid, err);
+                dbg(`unfollow ${uid} -> EXCEPTION ${err && err.stack ? err.stack.slice(0, 300) : err}`);
+                rejectedCount++;
+                if (!firstReject) firstReject = 'Exception: ' + err.message;
             }
 
             processedCount++;
@@ -854,7 +913,8 @@
         updateTranslations();
         updateStats(); // To reset unfollow button state based on remaining selections
 
-        setTimeout(() => alert(t('processDone') + successCount), 500);
+        setTimeout(() => alert(t('processDone') + successCount
+            + (rejectedCount ? `\nRejected: ${rejectedCount}\nFirst response: ${firstReject}` : '')), 500);
     });
 
 })();
