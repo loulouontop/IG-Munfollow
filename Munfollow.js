@@ -843,6 +843,7 @@
         mutualsCount = 0;
         selectedUserIds.clear();
         closeFriendsIds.clear();
+        viewerIsPrivate = null;
         updateStats();
 
         await fetchCloseFriends();
