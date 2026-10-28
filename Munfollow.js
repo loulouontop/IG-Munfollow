@@ -1014,6 +1014,8 @@
                 if (allUsers.length > 0 && lastWasRateLimit) {
                     alert(t('scanPartialFollowers').replace('{n}', String(followerIds.size)) +
                         `\n\nFollowing loaded: ${allUsers.length}`);
+                } else if (lastWasRateLimit) {
+                    alert(t('scanBlocked').replace('{m}', String(minutesLeft(getRateLimitUntil() || (Date.now() + RATE_LIMIT_COOLDOWN_MS)))));
                 } else {
                     alert('Error fetching following.\n' + lastNetError);
                 }
@@ -1074,6 +1076,9 @@
             });
         });
         dbg(`fans not followed back: ${fansNotFollowed.length}`);
+
+        // After main lists, optional. Skipped quietly if Instagram is still throttling.
+        await fetchCloseFriends();
 
         isScanning = false;
         els.scanBtn.disabled = false;
