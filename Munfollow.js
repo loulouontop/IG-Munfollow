@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.3.3 (Multi-language, Filters, Sorting, Fans Not Followed)
+ * Version: 4.3.4 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -45,6 +45,8 @@
             scanCooldown: "Rate limited. Waiting {s}s then retrying...",
             scanPagePause: "Cooling down {s}s to avoid limits...",
             scanPartialFollowers: "Instagram rate-limited the followers scan.\n\nContinuing with the {n} followers loaded so far. Mutuals / fans may be incomplete. Wait a few minutes before Rescan.",
+            scanBlocked: "Instagram is still blocking list scans on this account (Try again later).\n\nWait about {m} minutes, keep this tab open on Instagram, then press Scan again.\nShort retries make the block last longer.",
+            scanBlockedWait: "Scan blocked. Try again in about {m} min.",
             fAll: "All Following",
             fNonFollowers: "Non-Followers",
             fMutuals: "Mutuals",
@@ -95,6 +97,8 @@
             scanCooldown: "Limit. {s} sn bekleniyor, sonra yeniden denenecek...",
             scanPagePause: "Limit olmamak için {s} sn soğuma...",
             scanPartialFollowers: "Instagram takipçi taramasını sınırladı.\n\nŞimdiye kadar yüklenen {n} takipçi ile devam ediliyor. Karşılıklı / fan listesi eksik olabilir. Yeniden taramadan önce birkaç dakika bekleyin.",
+            scanBlocked: "Instagram bu hesapta liste taramasını hâlâ engelliyor (Try again later).\n\nYaklaşık {m} dakika bekleyin, Instagram sekmesini açık tutun, sonra tekrar Tara.\nKısa aralıklarla denemek engeli uzatır.",
+            scanBlockedWait: "Tarama engelli. Yaklaşık {m} dk sonra tekrar deneyin.",
             fAll: "Tümü",
             fNonFollowers: "Takip Etmeyenler",
             fMutuals: "Takip Edenler (Karşılıklı)",
@@ -145,6 +149,8 @@
             scanCooldown: "Límite de Instagram. Esperando {s}s y reintentando...",
             scanPagePause: "Pausa de {s}s para evitar límites...",
             scanPartialFollowers: "Instagram limitó el escaneo de seguidores.\n\nSe continúa con los {n} seguidores cargados hasta ahora. Mutuos / fans pueden estar incompletos. Espera unos minutos antes de volver a escanear.",
+            scanBlocked: "Instagram sigue bloqueando el escaneo de listas en esta cuenta (Try again later).\n\nEspera unos {m} minutos, deja esta pestaña abierta en Instagram y pulsa Escanear de nuevo.\nReintentar cada poco alarga el bloqueo.",
+            scanBlockedWait: "Escaneo bloqueado. Prueba de nuevo en unos {m} min.",
             fAll: "Todos",
             fNonFollowers: "No Seguidores",
             fMutuals: "Mutuos",
@@ -475,7 +481,33 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.3.3 loaded, user ' + userId + ', ajax ' + rolloutHash);
+    dbg('Munfollow 4.3.4 loaded, user ' + userId + ', ajax ' + rolloutHash);
+
+    const RATE_LIMIT_KEY = 'munfollow_rate_limited_until';
+    const RATE_LIMIT_COOLDOWN_MS = 20 * 60 * 1000;
+
+    function getRateLimitUntil() {
+        try {
+            const n = parseInt(localStorage.getItem(RATE_LIMIT_KEY) || '0', 10);
+            return Number.isFinite(n) ? n : 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function markRateLimited(ms) {
+        const until = Date.now() + (ms || RATE_LIMIT_COOLDOWN_MS);
+        try { localStorage.setItem(RATE_LIMIT_KEY, String(until)); } catch (e) {}
+        return until;
+    }
+
+    function clearRateLimitMark() {
+        try { localStorage.removeItem(RATE_LIMIT_KEY); } catch (e) {}
+    }
+
+    function minutesLeft(until) {
+        return Math.max(1, Math.ceil((until - Date.now()) / 60000));
+    }
 
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
@@ -795,7 +827,10 @@
 
     async function fetchFriendshipPage(type, maxId = '', statusLabel = '') {
         const url = `https://www.instagram.com/api/v1/friendships/${userId}/${type}/?count=100&search_surface=follow_list_page${maxId ? `&max_id=${maxId}` : ''}`;
-        const maxRetries = 5;
+        // Only retry mid-scan (already have a cursor). First-page spam means the
+        // account is blocked; short retries make Instagram keep the block longer.
+        const canRetry = !!maxId;
+        const maxRetries = canRetry ? 2 : 0;
         let attempt = 0;
         lastWasRateLimit = false;
 
@@ -804,6 +839,7 @@
                 const res = await fetch(url, { headers: apiHeaders, credentials: 'include' });
                 const raw = await res.text();
                 if (res.ok) {
+                    clearRateLimitMark();
                     try {
                         return JSON.parse(raw);
                     } catch (err) {
@@ -816,27 +852,33 @@
                 lastNetError = `${type} HTTP ${res.status}: ${raw.slice(0, 300)}`;
                 dbg(lastNetError);
 
-                if (isRateLimitResponse(res.status, raw) && attempt < maxRetries) {
+                if (isRateLimitResponse(res.status, raw)) {
                     lastWasRateLimit = true;
-                    attempt++;
-                    const waitSec = Math.min(300, 40 * attempt + Math.floor(Math.random() * 25));
-                    setScanStatus(
-                        `${t('scanCooldown').replace('{s}', String(waitSec))}<br>` +
-                        `${statusLabel || type} · retry ${attempt}/${maxRetries}`
-                    );
-                    dbg(`rate limit on ${type}, waiting ${waitSec}s (retry ${attempt}/${maxRetries})`);
-                    await sleep(waitSec * 1000);
-                    continue;
+                    const until = markRateLimited(RATE_LIMIT_COOLDOWN_MS);
+                    if (attempt < maxRetries) {
+                        attempt++;
+                        // Mid-scan only: long cool-downs, few retries
+                        const waitSec = 180 + attempt * 120 + Math.floor(Math.random() * 60);
+                        setScanStatus(
+                            `${t('scanCooldown').replace('{s}', String(waitSec))}<br>` +
+                            `${statusLabel || type} · retry ${attempt}/${maxRetries}`
+                        );
+                        dbg(`rate limit on ${type}, waiting ${waitSec}s (retry ${attempt}/${maxRetries})`);
+                        await sleep(waitSec * 1000);
+                        continue;
+                    }
+                    setScanStatus(t('scanBlockedWait').replace('{m}', String(minutesLeft(until))));
+                    dbg(`rate limit on ${type} with no more retries; cool until ${new Date(until).toISOString()}`);
+                    return null;
                 }
 
-                lastWasRateLimit = isRateLimitResponse(res.status, raw);
                 return null;
             } catch (err) {
                 lastNetError = `${type}: ${err.message}`;
                 dbg(lastNetError);
                 if (attempt < maxRetries) {
                     attempt++;
-                    const waitSec = 10 * attempt;
+                    const waitSec = 30 * attempt;
                     setScanStatus(`${t('scanCooldown').replace('{s}', String(waitSec))}<br>${statusLabel || type}`);
                     await sleep(waitSec * 1000);
                     continue;
@@ -883,21 +925,24 @@
     }
 
     async function fetchCloseFriends() {
+        // Optional; never block the main scan. A 400 here is common while rate-limited.
         try {
             const res = await fetch('https://www.instagram.com/api/v1/friendships/besties/', {
-                headers: {
-                    'x-ig-app-id': '936619743392459',
-                    'x-csrftoken': csrfToken
-                }
+                headers: { ...apiHeaders },
+                credentials: 'include'
             });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.users) {
-                    data.users.forEach(u => closeFriendsIds.add(String(u.pk || u.pk_id || u.id)));
-                }
+            const raw = await res.text();
+            if (!res.ok) {
+                if (isRateLimitResponse(res.status, raw)) markRateLimited(RATE_LIMIT_COOLDOWN_MS);
+                dbg(`besties skipped HTTP ${res.status}`);
+                return;
+            }
+            const data = JSON.parse(raw);
+            if (data && data.users) {
+                data.users.forEach(u => closeFriendsIds.add(String(u.pk || u.pk_id || u.id)));
             }
         } catch (e) {
-            console.error('Error fetching close friends:', e);
+            dbg('besties skipped: ' + (e && e.message ? e.message : e));
         }
     }
 
@@ -915,6 +960,12 @@
     });
 
     async function runScan() {
+        const blockedUntil = getRateLimitUntil();
+        if (blockedUntil > Date.now()) {
+            alert(t('scanBlocked').replace('{m}', String(minutesLeft(blockedUntil))));
+            return;
+        }
+
         isScanning = true;
         els.scanBtn.disabled = true;
         updateTranslations();
@@ -930,11 +981,13 @@
         viewerIsPrivate = null;
         updateStats();
 
-        await fetchCloseFriends();
         setScanStatus(t('scanning'));
         const followers = await fetchFollowers();
         if (!followers) {
-            alert('Error fetching followers.\n' + lastNetError);
+            const msg = lastWasRateLimit
+                ? t('scanBlocked').replace('{m}', String(minutesLeft(getRateLimitUntil() || (Date.now() + RATE_LIMIT_COOLDOWN_MS))))
+                : ('Error fetching followers.\n' + lastNetError);
+            alert(msg);
             isScanning = false;
             els.scanBtn.disabled = false;
             els.scanBtn.style.opacity = '1';
