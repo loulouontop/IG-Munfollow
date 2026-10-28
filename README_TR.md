@@ -36,7 +36,7 @@
 ## ✨ Öne çıkanlar
 
 - **Hiçbir şey kurulmuyor, şifre paylaşılmıyor** - tek bir script, zaten giriş yapmış olduğun sayfada kendi tarayıcı konsoluna yapıştırılıyor. Arada bir uygulama yok, dolayısıyla kimlik bilgilerini verecek bir yer de yok.
-- **Takip listeni yedi şekilde ayır** - herkes, geri takip etmeyenler, karşılıklılar, gizli hesaplar, onaylı hesaplar, profil fotoğrafı olmayanlar ve yakın arkadaşlar.
+- **Listelerini sekiz şekilde ayır** - takip ettiklerin, geri takip etmeyenler, karşılıklılar, gizli hesaplar, onaylı hesaplar, profil fotoğrafı olmayanlar, yakın arkadaşlar ve takip etmediğin takipçiler.
 - **Ne zaman takip ettiğine göre sırala** - son hataları gözden geçirmek için yeniden eskiye, yıllar önce takip edip unuttuklarını temizlemek için eskiden yeniye.
 - **Ban önleyici tempolama** - alt ve üst sınırı ayarlanabilir rastgele bekleme, ayrıca belirlediğin sayıda takipten çıkma sonrası otomatik mola.
 - **Canlı istatistik** - toplam taranan, geri takip etmeyen, karşılıklı, seçili ve başarılı takipten çıkma sayacı.
@@ -106,6 +106,7 @@ Her şey panelden ayarlanır, dosyada hiçbir şey düzenlenmez.
 | Verified Accounts | Onay rozeti olan hesaplar |
 | No Profile Picture | Hiç avatar koymamış hesaplar, genelde terk edilmiş veya sahte |
 | Close Friends | Yakın arkadaş listendeki hesaplar |
+| Followers Not Followed Back | Seni takip eden ama senin takip etmediğin kişiler; seçilenler takipçilerden kaldırılır |
 
 ### Sıralama
 

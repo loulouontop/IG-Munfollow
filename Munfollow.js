@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.2.0 (Multi-language, Filters, Sorting)
+ * Version: 4.3.0 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -33,12 +33,14 @@
             filterLabel: "Filter Type",
             sortLabel: "Sort Direction",
             unfollowBtn: "Unfollow Selected",
+            removeBtn: "Remove Selected Followers",
             unfollowing: "Processing...",
             pauseStatus: "Paused",
             selectAll: "Select All",
             emptyList: "Start scanning to see the list here.",
             confirmUnfollow: "Are you sure you want to unfollow the selected users?\n\nDo not close the page during the process.",
-            processDone: "Process completed!\nSuccessfully unfollowed: ",
+            confirmRemove: "Are you sure you want to remove the selected followers?\n\nDo not close the page during the process.",
+            processDone: "Process completed!\nSuccessfully processed: ",
             fAll: "All Following",
             fNonFollowers: "Non-Followers",
             fMutuals: "Mutuals",
@@ -46,9 +48,13 @@
             fVerified: "Verified Accounts",
             fNoPic: "No Profile Picture",
             fCloseFriends: "Close Friends",
+            fFansNotFollowed: "Followers Not Followed Back",
             sNewest: "Newest to Oldest",
             sOldest: "Oldest to Newest",
             userList: "User List",
+            badgeMutual: "Mutual",
+            badgeNotFollowing: "Not Following",
+            badgeFollowsYou: "Follows You",
             devLink: "Creator @miabeyefendi",
             githubLink: "Github: Munfollow"
         },
@@ -73,12 +79,14 @@
             filterLabel: "Filtre Türü",
             sortLabel: "Sıralama (Takip Sırası)",
             unfollowBtn: "Seçilenleri Takipten Çık",
+            removeBtn: "Seçilen Takipçileri Kaldır",
             unfollowing: "Devam Ediyor...",
             pauseStatus: "Mola Verildi",
             selectAll: "Tümünü Seç",
             emptyList: "Taramayı başlattığınızda kullanıcılar burada listelenecektir.",
             confirmUnfollow: "Seçilen kişileri takipten çıkmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
-            processDone: "İşlem tamamlandı!\nBaşarıyla takipten çıkılan: ",
+            confirmRemove: "Seçilen takipçileri kaldırmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
+            processDone: "İşlem tamamlandı!\nBaşarıyla işlenen: ",
             fAll: "Tümü",
             fNonFollowers: "Takip Etmeyenler",
             fMutuals: "Takip Edenler (Karşılıklı)",
@@ -86,9 +94,13 @@
             fVerified: "Onaylı Hesaplar",
             fNoPic: "Profil Fotoğrafı Olmayanlar",
             fCloseFriends: "Yakın Arkadaşlar",
+            fFansNotFollowed: "Takip Etmediğin Takipçiler",
             sNewest: "Sondan İlke Doğru (Son Takip)",
             sOldest: "İlkten Sona Doğru (İlk Takip)",
             userList: "Kullanıcı Listesi",
+            badgeMutual: "Karşılıklı",
+            badgeNotFollowing: "Takip Etmiyor",
+            badgeFollowsYou: "Seni Takip Ediyor",
             devLink: "Yaratıcı @miabeyefendi",
             githubLink: "Github: Munfollow"
         },
@@ -113,11 +125,13 @@
             filterLabel: "Tipo de Filtro",
             sortLabel: "Orden",
             unfollowBtn: "Dejar de seguir",
+            removeBtn: "Quitar seguidores seleccionados",
             unfollowing: "Procesando...",
             pauseStatus: "Pausado",
             selectAll: "Seleccionar Todo",
             emptyList: "Empieza a escanear para ver la lista aquí.",
             confirmUnfollow: "¿Estás seguro de que quieres dejar de seguir a los usuarios seleccionados?\n\nNo cierres la página durante el proceso.",
+            confirmRemove: "¿Estás seguro de que quieres quitar a los seguidores seleccionados?\n\nNo cierres la página durante el proceso.",
             processDone: "¡Proceso completado!\nCon éxito: ",
             fAll: "Todos",
             fNonFollowers: "No Seguidores",
@@ -126,9 +140,13 @@
             fVerified: "Cuentas Verificadas",
             fNoPic: "Sin Foto de Perfil",
             fCloseFriends: "Mejores Amigos",
+            fFansNotFollowed: "Seguidores no seguidos",
             sNewest: "Más nuevos",
             sOldest: "Más antiguos",
             userList: "Lista de Usuarios",
+            badgeMutual: "Mutuo",
+            badgeNotFollowing: "No te sigue",
+            badgeFollowsYou: "Te sigue",
             devLink: "Creador @miabeyefendi",
             githubLink: "Github: Munfollow"
         }
@@ -157,6 +175,7 @@
 
     // Application state
     let allUsers = [];
+    let fansNotFollowed = [];
     let displayedUsers = [];
     let nonFollowersCount = 0;
     let mutualsCount = 0;
@@ -165,6 +184,14 @@
     let isScanning = false;
     let isUnfollowing = false;
     let successCount = 0;
+
+    function isFansNotFollowedFilter() {
+        return filterSelect.value === 'FANS_NOT_FOLLOWED';
+    }
+
+    function findUserById(uid) {
+        return allUsers.find(u => u.id === uid) || fansNotFollowed.find(u => u.id === uid);
+    }
 
     const els = {};
 
@@ -261,7 +288,7 @@
 
     const filterSelect = document.createElement('select');
     filterSelect.style.cssText = 'width: 100%; padding: 8px 12px; background: #09090b; border: 1px solid #3f3f46; border-radius: 6px; color: #fff; font-size: 14px; outline: none; cursor: pointer;';
-    ['ALL', 'NON_FOLLOWERS', 'MUTUALS', 'VERIFIED', 'PRIVATE', 'NO_PIC', 'CLOSE_FRIENDS'].forEach(val => {
+    ['ALL', 'NON_FOLLOWERS', 'MUTUALS', 'VERIFIED', 'PRIVATE', 'NO_PIC', 'CLOSE_FRIENDS', 'FANS_NOT_FOLLOWED'].forEach(val => {
         const op = document.createElement('option');
         op.value = val;
         filterSelect.appendChild(op);
@@ -426,7 +453,7 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.1.0 loaded, user ' + userId);
+    dbg('Munfollow 4.3.0 loaded, user ' + userId);
 
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
@@ -459,12 +486,13 @@
         filterSelect.options[4].text = t('fPrivate');
         filterSelect.options[5].text = t('fNoPic');
         filterSelect.options[6].text = t('fCloseFriends');
+        filterSelect.options[7].text = t('fFansNotFollowed');
 
         sortSelect.options[0].text = t('sNewest');
         sortSelect.options[1].text = t('sOldest');
 
         if (isUnfollowing) els.unfollowBtn.textContent = els.unfollowBtn.dataset.paused ? t('pauseStatus') : t('unfollowing');
-        else els.unfollowBtn.textContent = t('unfollowBtn');
+        else els.unfollowBtn.textContent = isFansNotFollowedFilter() ? t('removeBtn') : t('unfollowBtn');
 
         els.selectAllText.textContent = t('selectAll');
         els.userListTitle.textContent = t('userList');
@@ -514,16 +542,21 @@
         const f = filterSelect.value;
         const s = sortSelect.value;
 
-        let filtered = allUsers.filter(user => {
-            if (f === 'ALL') return true;
-            if (f === 'NON_FOLLOWERS') return !user.follows_viewer;
-            if (f === 'MUTUALS') return user.follows_viewer;
-            if (f === 'VERIFIED') return user.is_verified;
-            if (f === 'PRIVATE') return user.is_private;
-            if (f === 'NO_PIC') return user.has_anonymous_profile_picture || (user.profile_pic_url && (user.profile_pic_url.includes('11906329_960233084022564_1448528159_a.jpg') || user.profile_pic_url.includes('44884218_345707102882519')));
-            if (f === 'CLOSE_FRIENDS') return closeFriendsIds.has(String(user.id));
-            return true;
-        });
+        let filtered;
+        if (f === 'FANS_NOT_FOLLOWED') {
+            filtered = [...fansNotFollowed];
+        } else {
+            filtered = allUsers.filter(user => {
+                if (f === 'ALL') return true;
+                if (f === 'NON_FOLLOWERS') return !user.follows_viewer;
+                if (f === 'MUTUALS') return user.follows_viewer;
+                if (f === 'VERIFIED') return user.is_verified;
+                if (f === 'PRIVATE') return user.is_private;
+                if (f === 'NO_PIC') return user.has_anonymous_profile_picture || (user.profile_pic_url && (user.profile_pic_url.includes('11906329_960233084022564_1448528159_a.jpg') || user.profile_pic_url.includes('44884218_345707102882519')));
+                if (f === 'CLOSE_FRIENDS') return closeFriendsIds.has(String(user.id));
+                return true;
+            });
+        }
 
         if (s === 'OLDEST') {
             filtered = [...filtered].reverse();
@@ -532,6 +565,9 @@
         displayedUsers = filtered;
         renderList();
         updateStats();
+        if (!isUnfollowing) {
+            els.unfollowBtn.textContent = isFansNotFollowedFilter() ? t('removeBtn') : t('unfollowBtn');
+        }
     }
 
     filterSelect.addEventListener('change', applyFilterAndSort);
@@ -607,12 +643,16 @@
 
             const relationship = document.createElement('span');
             relationship.style.cssText = 'font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600;';
-            if (user.follows_viewer) {
-                relationship.textContent = 'Mutual';
+            if (user.viewer_follows === false && user.follows_viewer) {
+                relationship.textContent = t('badgeFollowsYou');
+                relationship.style.background = 'rgba(34, 211, 238, 0.1)';
+                relationship.style.color = '#22d3ee';
+            } else if (user.follows_viewer) {
+                relationship.textContent = t('badgeMutual');
                 relationship.style.background = 'rgba(167, 139, 250, 0.1)';
                 relationship.style.color = '#a78bfa';
             } else {
-                relationship.textContent = 'Not Following';
+                relationship.textContent = t('badgeNotFollowing');
                 relationship.style.background = 'rgba(244, 63, 94, 0.1)';
                 relationship.style.color = '#f43f5e';
             }
@@ -677,14 +717,19 @@
     }
 
     // Yeni uc follows_viewer vermiyor, takipci listesi cekilip fark alinir
-    async function fetchFollowerIds() {
+    async function fetchFollowers() {
         const ids = new Set();
+        const usersById = new Map();
         let maxId = '';
         do {
             const data = await fetchFriendshipPage('followers', maxId);
             if (!data) return null;
             const before = ids.size;
-            (data.users || []).forEach(u => ids.add(String(u.pk)));
+            (data.users || []).forEach(u => {
+                const id = String(u.pk);
+                ids.add(id);
+                usersById.set(id, u);
+            });
             dbg(`followers scanned: ${ids.size}`);
             listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')} followers: ${ids.size}</div>`;
             const next = data.next_max_id ? String(data.next_max_id) : '';
@@ -693,7 +738,7 @@
             maxId = next;
             await sleep(Math.floor(Math.random() * 1000) + 1000);
         } while (true);
-        return ids;
+        return { ids, usersById };
     }
 
     async function fetchCloseFriends() {
@@ -735,6 +780,7 @@
         els.scanBtn.style.opacity = '0.5';
 
         allUsers = [];
+        fansNotFollowed = [];
         displayedUsers = [];
         nonFollowersCount = 0;
         mutualsCount = 0;
@@ -744,8 +790,8 @@
 
         await fetchCloseFriends();
         listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')}</div>`;
-        const followerIds = await fetchFollowerIds();
-        if (!followerIds) {
+        const followers = await fetchFollowers();
+        if (!followers) {
             alert('Error fetching followers.\n' + lastNetError);
             isScanning = false;
             els.scanBtn.disabled = false;
@@ -753,6 +799,7 @@
             updateTranslations();
             return;
         }
+        const { ids: followerIds, usersById: followerUsersById } = followers;
 
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
@@ -782,7 +829,8 @@
                     is_verified: u.is_verified,
                     profile_pic_url: u.profile_pic_url,
                     has_anonymous_profile_picture: u.has_anonymous_profile_picture,
-                    follows_viewer: followerIds.has(String(u.pk))
+                    follows_viewer: followerIds.has(String(u.pk)),
+                    viewer_follows: true
                 };
                 allUsers.push(user);
                 if (!user.follows_viewer) {
@@ -805,6 +853,23 @@
             }
         }
 
+        fansNotFollowed = [];
+        followerUsersById.forEach((u, id) => {
+            if (seenIds.has(id)) return;
+            fansNotFollowed.push({
+                id,
+                username: u.username,
+                full_name: u.full_name,
+                is_private: u.is_private,
+                is_verified: u.is_verified,
+                profile_pic_url: u.profile_pic_url,
+                has_anonymous_profile_picture: u.has_anonymous_profile_picture,
+                follows_viewer: true,
+                viewer_follows: false
+            });
+        });
+        dbg(`fans not followed back: ${fansNotFollowed.length}`);
+
         isScanning = false;
         els.scanBtn.disabled = false;
         els.scanBtn.style.opacity = '1';
@@ -817,7 +882,8 @@
     els.unfollowBtn.addEventListener('click', async () => {
         if (isUnfollowing || selectedUserIds.size === 0) return;
 
-        if (!confirm(t('confirmUnfollow'))) return;
+        const removeMode = isFansNotFollowedFilter();
+        if (!confirm(removeMode ? t('confirmRemove') : t('confirmUnfollow'))) return;
 
         isUnfollowing = true;
         els.unfollowBtn.disabled = true;
@@ -829,7 +895,7 @@
         const pauseCount = parseInt(autoPauseCountInput.value) || 50;
         const pauseDuration = parseInt(autoPauseDurationInput.value) || 300;
 
-        const usersToUnfollow = Array.from(selectedUserIds);
+        const usersToProcess = Array.from(selectedUserIds);
         let processedCount = 0;
         let rejectedCount = 0;
         let firstReject = '';
@@ -838,21 +904,27 @@
         progressBar.style.width = '0%';
         progressBar.style.background = '#e11d48';
 
-        for (let i = 0; i < usersToUnfollow.length; i++) {
-            const uid = usersToUnfollow[i];
+        for (let i = 0; i < usersToProcess.length; i++) {
+            const uid = usersToProcess[i];
+            const userObj = findUserById(uid);
+            const removeFollower = removeMode || (userObj && userObj.viewer_follows === false);
+            const actionName = removeFollower ? 'remove_follower' : 'unfollow';
 
             try {
-                // friendships/destroy 200 ile HTML donduruyor, calisan yol web/friendships/unfollow
-                const res = await fetch(`https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`, {
+                const endpoint = removeFollower
+                    ? `https://www.instagram.com/api/v1/web/friendships/${uid}/remove_follower/`
+                    : `https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`;
+                // friendships/destroy 200 ile HTML donduruyor, calisan yol web/friendships/unfollow|remove_follower
+                const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
                     body: `container_module=profile&nav_chain=&user_id=${uid}`
                 });
                 const raw = await res.text();
-                const attempts = [`unfollow HTTP ${res.status} ${raw.slice(0, 200)}`];
+                const attempts = [`${actionName} HTTP ${res.status} ${raw.slice(0, 200)}`];
                 let json = null;
                 try { json = JSON.parse(raw); } catch (e) {}
-                let unfollowed = res.ok && json && json.status === 'ok';
+                let ok = res.ok && json && json.status === 'ok';
 
                 // 200 donmesi yetmiyor, show ile gercek durum okunur
                 await sleep(1000);
@@ -860,41 +932,48 @@
                 const showRaw = await showRes.text();
                 let show = null;
                 try { show = JSON.parse(showRaw); } catch (e) {}
-                if (show && typeof show.following === 'boolean') unfollowed = show.following === false;
+                if (removeFollower) {
+                    if (show && typeof show.followed_by === 'boolean') ok = show.followed_by === false;
+                } else if (show && typeof show.following === 'boolean') {
+                    ok = show.following === false;
+                }
                 attempts.push(`show HTTP ${showRes.status} ${showRaw.slice(0, 200)}`);
 
                 const report = attempts.join(' | ');
-                dbg(`unfollow ${uid} -> ${unfollowed ? 'OK' : 'REJECTED'} :: ${report}`);
-                if (!unfollowed) {
+                dbg(`${actionName} ${uid} -> ${ok ? 'OK' : 'REJECTED'} :: ${report}`);
+                if (!ok) {
                     rejectedCount++;
                     if (!firstReject) firstReject = report;
                 }
 
-                if (unfollowed) {
+                if (ok) {
                     successCount++;
 
                     selectedUserIds.delete(uid);
-                    allUsers = allUsers.filter(u => u.id !== uid);
-                    const userObj = displayedUsers.find(u => u.id === uid);
-                    if (userObj) {
-                        if (!userObj.follows_viewer) nonFollowersCount--;
-                        else mutualsCount--;
+                    if (removeFollower) {
+                        fansNotFollowed = fansNotFollowed.filter(u => u.id !== uid);
+                    } else {
+                        allUsers = allUsers.filter(u => u.id !== uid);
+                        if (userObj) {
+                            if (!userObj.follows_viewer) nonFollowersCount--;
+                            else mutualsCount--;
+                        }
                     }
                     applyFilterAndSort(); // re-render list inline safely
                 } else {
-                    console.error('Failed to unfollow', uid);
+                    console.error(`Failed to ${actionName}`, uid);
                 }
             } catch (err) {
-                dbg(`unfollow ${uid} -> EXCEPTION ${err && err.stack ? err.stack.slice(0, 300) : err}`);
+                dbg(`${actionName} ${uid} -> EXCEPTION ${err && err.stack ? err.stack.slice(0, 300) : err}`);
                 rejectedCount++;
                 if (!firstReject) firstReject = 'Exception: ' + err.message;
             }
 
             processedCount++;
-            progressBar.style.width = `${(processedCount / usersToUnfollow.length) * 100}%`;
+            progressBar.style.width = `${(processedCount / usersToProcess.length) * 100}%`;
             updateStats();
 
-            if (i < usersToUnfollow.length - 1) {
+            if (i < usersToProcess.length - 1) {
                 if ((i + 1) % pauseCount === 0) {
                     els.unfollowBtn.dataset.paused = "true";
                     updateTranslations();
