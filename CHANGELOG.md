@@ -28,6 +28,10 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
   path, accept only JSON responses, and stop with a clear message when the
   logged-in account is public (Instagram only allows remove-follower on
   private accounts).
+- Large scans hitting Instagram `feedback_required` / spam after ~2000
+  followers no longer abort with a hard error. Scanning is slower, retries
+  with cool-downs on rate limits, and continues with partial results when
+  Instagram still blocks.
 
 ### Changed
 

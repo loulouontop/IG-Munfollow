@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.3.2 (Multi-language, Filters, Sorting, Fans Not Followed)
+ * Version: 4.3.3 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -42,6 +42,9 @@
             confirmRemove: "Are you sure you want to remove the selected followers?\n\nDo not close the page during the process.",
             privateRequired: "Instagram only lets private accounts remove followers.\n\nSet your account to Private in Settings, then scan again.\n(Public accounts can only block people instead.)",
             processDone: "Process completed!\nSuccessfully processed: ",
+            scanCooldown: "Rate limited. Waiting {s}s then retrying...",
+            scanPagePause: "Cooling down {s}s to avoid limits...",
+            scanPartialFollowers: "Instagram rate-limited the followers scan.\n\nContinuing with the {n} followers loaded so far. Mutuals / fans may be incomplete. Wait a few minutes before Rescan.",
             fAll: "All Following",
             fNonFollowers: "Non-Followers",
             fMutuals: "Mutuals",
@@ -89,6 +92,9 @@
             confirmRemove: "Seçilen takipçileri kaldırmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
             privateRequired: "Instagram yalnızca gizli hesapların takipçi kaldırmasına izin verir.\n\nAyarlardan hesabını Gizli yap, sonra yeniden tara.\n(Açık hesaplar yalnızca engelleyebilir.)",
             processDone: "İşlem tamamlandı!\nBaşarıyla işlenen: ",
+            scanCooldown: "Limit. {s} sn bekleniyor, sonra yeniden denenecek...",
+            scanPagePause: "Limit olmamak için {s} sn soğuma...",
+            scanPartialFollowers: "Instagram takipçi taramasını sınırladı.\n\nŞimdiye kadar yüklenen {n} takipçi ile devam ediliyor. Karşılıklı / fan listesi eksik olabilir. Yeniden taramadan önce birkaç dakika bekleyin.",
             fAll: "Tümü",
             fNonFollowers: "Takip Etmeyenler",
             fMutuals: "Takip Edenler (Karşılıklı)",
@@ -136,6 +142,9 @@
             confirmRemove: "¿Estás seguro de que quieres quitar a los seguidores seleccionados?\n\nNo cierres la página durante el proceso.",
             privateRequired: "Instagram solo permite quitar seguidores en cuentas privadas.\n\nPon tu cuenta en Privada en Ajustes y vuelve a escanear.\n(Las cuentas públicas solo pueden bloquear.)",
             processDone: "¡Proceso completado!\nCon éxito: ",
+            scanCooldown: "Límite de Instagram. Esperando {s}s y reintentando...",
+            scanPagePause: "Pausa de {s}s para evitar límites...",
+            scanPartialFollowers: "Instagram limitó el escaneo de seguidores.\n\nSe continúa con los {n} seguidores cargados hasta ahora. Mutuos / fans pueden estar incompletos. Espera unos minutos antes de volver a escanear.",
             fAll: "Todos",
             fNonFollowers: "No Seguidores",
             fMutuals: "Mutuos",
@@ -466,7 +475,7 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.3.2 loaded, user ' + userId + ', ajax ' + rolloutHash);
+    dbg('Munfollow 4.3.3 loaded, user ' + userId + ', ajax ' + rolloutHash);
 
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
@@ -755,21 +764,85 @@
     }
 
     let lastNetError = '';
-    async function fetchFriendshipPage(type, maxId = '') {
-        const url = `https://www.instagram.com/api/v1/friendships/${userId}/${type}/?count=100&search_surface=follow_list_page${maxId ? `&max_id=${maxId}` : ''}`;
+    let lastWasRateLimit = false;
+
+    function setScanStatus(msg) {
+        listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500; padding: 0 24px; line-height: 1.5;">${msg}</div>`;
+    }
+
+    function isRateLimitResponse(status, raw) {
+        if (status === 429) return true;
+        if (status !== 400 && status !== 403) return false;
         try {
-            const res = await fetch(url, { headers: apiHeaders });
-            const raw = await res.text();
-            if (!res.ok) {
+            const j = JSON.parse(raw);
+            return !!(j && (j.spam === true || j.message === 'feedback_required' || j.feedback_title || j.feedback_action));
+        } catch (e) {
+            return /feedback_required|"spam"\s*:\s*true/i.test(raw || '');
+        }
+    }
+
+    async function scanPageDelay(pageIndex, label) {
+        // Base pacing: 2.5-5s between pages (1-2s was too aggressive past ~2k users)
+        await sleep(2500 + Math.floor(Math.random() * 2500));
+        // Extra cool-down every 8 pages (~800 accounts at count=100)
+        if (pageIndex > 0 && pageIndex % 8 === 0) {
+            const extraSec = 25 + Math.floor(Math.random() * 35);
+            setScanStatus(`${t('scanPagePause').replace('{s}', String(extraSec))}<br>${label}`);
+            dbg(`scan cool-down ${extraSec}s after page ${pageIndex}`);
+            await sleep(extraSec * 1000);
+        }
+    }
+
+    async function fetchFriendshipPage(type, maxId = '', statusLabel = '') {
+        const url = `https://www.instagram.com/api/v1/friendships/${userId}/${type}/?count=100&search_surface=follow_list_page${maxId ? `&max_id=${maxId}` : ''}`;
+        const maxRetries = 5;
+        let attempt = 0;
+        lastWasRateLimit = false;
+
+        while (true) {
+            try {
+                const res = await fetch(url, { headers: apiHeaders, credentials: 'include' });
+                const raw = await res.text();
+                if (res.ok) {
+                    try {
+                        return JSON.parse(raw);
+                    } catch (err) {
+                        lastNetError = `${type}: invalid JSON ${raw.slice(0, 200)}`;
+                        dbg(lastNetError);
+                        return null;
+                    }
+                }
+
                 lastNetError = `${type} HTTP ${res.status}: ${raw.slice(0, 300)}`;
                 dbg(lastNetError);
+
+                if (isRateLimitResponse(res.status, raw) && attempt < maxRetries) {
+                    lastWasRateLimit = true;
+                    attempt++;
+                    const waitSec = Math.min(300, 40 * attempt + Math.floor(Math.random() * 25));
+                    setScanStatus(
+                        `${t('scanCooldown').replace('{s}', String(waitSec))}<br>` +
+                        `${statusLabel || type} · retry ${attempt}/${maxRetries}`
+                    );
+                    dbg(`rate limit on ${type}, waiting ${waitSec}s (retry ${attempt}/${maxRetries})`);
+                    await sleep(waitSec * 1000);
+                    continue;
+                }
+
+                lastWasRateLimit = isRateLimitResponse(res.status, raw);
+                return null;
+            } catch (err) {
+                lastNetError = `${type}: ${err.message}`;
+                dbg(lastNetError);
+                if (attempt < maxRetries) {
+                    attempt++;
+                    const waitSec = 10 * attempt;
+                    setScanStatus(`${t('scanCooldown').replace('{s}', String(waitSec))}<br>${statusLabel || type}`);
+                    await sleep(waitSec * 1000);
+                    continue;
+                }
                 return null;
             }
-            return JSON.parse(raw);
-        } catch (err) {
-            lastNetError = `${type}: ${err.message}`;
-            dbg(lastNetError);
-            return null;
         }
     }
 
@@ -778,24 +851,35 @@
         const ids = new Set();
         const usersById = new Map();
         let maxId = '';
+        let page = 0;
+        let partial = false;
         do {
-            const data = await fetchFriendshipPage('followers', maxId);
-            if (!data) return null;
+            const label = `followers: ${ids.size}`;
+            const data = await fetchFriendshipPage('followers', maxId, label);
+            if (!data) {
+                if (ids.size > 0 && lastWasRateLimit) {
+                    partial = true;
+                    dbg(`followers partial after rate limit: ${ids.size}`);
+                    break;
+                }
+                return null;
+            }
             const before = ids.size;
             (data.users || []).forEach(u => {
                 const id = String(u.pk);
                 ids.add(id);
                 usersById.set(id, u);
             });
+            page++;
             dbg(`followers scanned: ${ids.size}`);
-            listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')} followers: ${ids.size}</div>`;
+            setScanStatus(`${t('scanning')} followers: ${ids.size}`);
             const next = data.next_max_id ? String(data.next_max_id) : '';
             // Son sayfada da next_max_id gelebiliyor, yeni kullanici yoksa ya da ayni imlecse dur
             if (!next || next === maxId || ids.size === before) break;
             maxId = next;
-            await sleep(Math.floor(Math.random() * 1000) + 1000);
+            await scanPageDelay(page, `followers: ${ids.size}`);
         } while (true);
-        return { ids, usersById };
+        return { ids, usersById, partial };
     }
 
     async function fetchCloseFriends() {
@@ -847,7 +931,7 @@
         updateStats();
 
         await fetchCloseFriends();
-        listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')}</div>`;
+        setScanStatus(t('scanning'));
         const followers = await fetchFollowers();
         if (!followers) {
             alert('Error fetching followers.\n' + lastNetError);
@@ -857,20 +941,29 @@
             updateTranslations();
             return;
         }
-        const { ids: followerIds, usersById: followerUsersById } = followers;
+        const { ids: followerIds, usersById: followerUsersById, partial: followersPartial } = followers;
+        if (followersPartial) {
+            alert(t('scanPartialFollowers').replace('{n}', String(followerIds.size)));
+        }
 
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
-        listContainer.innerHTML = `<div style="text-align: center; color: #22d3ee; margin-top: 100px; font-weight: 500;">${t('scanning')}</div>`;
+        setScanStatus(`${t('scanning')} following...`);
 
         let hasNextPage = true;
         let cursor = '';
+        let followingPage = 0;
         const seenIds = new Set();
 
         while (hasNextPage) {
-            const data = await fetchFriendshipPage('following', cursor);
+            const data = await fetchFriendshipPage('following', cursor, `following: ${allUsers.length}`);
             if (!data) {
-                alert('Error fetching following.\n' + lastNetError);
+                if (allUsers.length > 0 && lastWasRateLimit) {
+                    alert(t('scanPartialFollowers').replace('{n}', String(followerIds.size)) +
+                        `\n\nFollowing loaded: ${allUsers.length}`);
+                } else {
+                    alert('Error fetching following.\n' + lastNetError);
+                }
                 break;
             }
 
@@ -898,6 +991,7 @@
                 }
             });
 
+            followingPage++;
             dbg(`following scanned: ${allUsers.length}`);
             applyFilterAndSort();
             const next = data.next_max_id ? String(data.next_max_id) : '';
@@ -907,7 +1001,7 @@
             updateStats();
 
             if (hasNextPage) {
-                await sleep(Math.floor(Math.random() * 1000) + 1000);
+                await scanPageDelay(followingPage, `following: ${allUsers.length}`);
             }
         }
 
