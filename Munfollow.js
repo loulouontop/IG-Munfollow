@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.3.4 (Multi-language, Filters, Sorting, Fans Not Followed)
+ * Version: 4.3.5 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -39,14 +39,18 @@
             selectAll: "Select All",
             emptyList: "Start scanning to see the list here.",
             confirmUnfollow: "Are you sure you want to unfollow the selected users?\n\nDo not close the page during the process.",
-            confirmRemove: "Are you sure you want to remove the selected followers?\n\nDo not close the page during the process.",
+            confirmRemove: "Remove up to {n} selected followers now?\n\nUse small batches only. Do not close the page.",
             privateRequired: "Instagram only lets private accounts remove followers.\n\nSet your account to Private in Settings, then scan again.\n(Public accounts can only block people instead.)",
             processDone: "Process completed!\nSuccessfully processed: ",
             scanCooldown: "Rate limited. Waiting {s}s then retrying...",
             scanPagePause: "Cooling down {s}s to avoid limits...",
-            scanPartialFollowers: "Instagram rate-limited the followers scan.\n\nContinuing with the {n} followers loaded so far. Mutuals / fans may be incomplete. Wait a few minutes before Rescan.",
+            scanPartialFollowers: "Instagram rate-limited the followers scan.\n\nContinuing with the {n} followers loaded so far. Do NOT Rescan yet. Wait several hours, then remove followers in small batches from this list.",
             scanBlocked: "Instagram is still blocking list scans on this account (Try again later).\n\nWait about {m} minutes, keep this tab open on Instagram, then press Scan again.\nShort retries make the block last longer.",
             scanBlockedWait: "Scan blocked. Try again in about {m} min.",
+            actionBlocked: "Instagram cool-down is still active.\n\nWait about {m} minutes before removing or unfollowing.\nDo not Rescan right now.",
+            batchTooLarge: "You selected {selected} people. For follower removals, only the first {n} will run in this batch.\n\nContinue with {n}?",
+            removeSafeDefaults: "Follower removal uses safer pacing (higher delays, pause every few actions).",
+            actionRateLimitedStop: "Instagram rate-limited removals/unfollows. Stopping this batch.\nWait longer before trying again.",
             fAll: "All Following",
             fNonFollowers: "Non-Followers",
             fMutuals: "Mutuals",
@@ -91,14 +95,18 @@
             selectAll: "Tümünü Seç",
             emptyList: "Taramayı başlattığınızda kullanıcılar burada listelenecektir.",
             confirmUnfollow: "Seçilen kişileri takipten çıkmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
-            confirmRemove: "Seçilen takipçileri kaldırmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
+            confirmRemove: "Şimdi en fazla {n} seçili takipçi kaldırılsın mı?\n\nKüçük gruplar kullanın. Sayfayı kapatmayın.",
             privateRequired: "Instagram yalnızca gizli hesapların takipçi kaldırmasına izin verir.\n\nAyarlardan hesabını Gizli yap, sonra yeniden tara.\n(Açık hesaplar yalnızca engelleyebilir.)",
             processDone: "İşlem tamamlandı!\nBaşarıyla işlenen: ",
             scanCooldown: "Limit. {s} sn bekleniyor, sonra yeniden denenecek...",
             scanPagePause: "Limit olmamak için {s} sn soğuma...",
-            scanPartialFollowers: "Instagram takipçi taramasını sınırladı.\n\nŞimdiye kadar yüklenen {n} takipçi ile devam ediliyor. Karşılıklı / fan listesi eksik olabilir. Yeniden taramadan önce birkaç dakika bekleyin.",
+            scanPartialFollowers: "Instagram takipçi taramasını sınırladı.\n\nŞimdiye kadar yüklenen {n} takipçi ile devam ediliyor. Şimdi Yeniden Tara yapmayın. Birkaç saat bekleyip bu listeden küçük gruplarla takipçi kaldırın.",
             scanBlocked: "Instagram bu hesapta liste taramasını hâlâ engelliyor (Try again later).\n\nYaklaşık {m} dakika bekleyin, Instagram sekmesini açık tutun, sonra tekrar Tara.\nKısa aralıklarla denemek engeli uzatır.",
             scanBlockedWait: "Tarama engelli. Yaklaşık {m} dk sonra tekrar deneyin.",
+            actionBlocked: "Instagram soğuma süresi hâlâ aktif.\n\nKaldırma / takipten çıkarma için yaklaşık {m} dakika bekleyin.\nŞimdi Yeniden Tara yapmayın.",
+            batchTooLarge: "{selected} kişi seçildi. Takipçi kaldırmada bu turda yalnızca ilk {n} işlenecek.\n\n{n} kişiyle devam edilsin mi?",
+            removeSafeDefaults: "Takipçi kaldırma için daha güvenli tempo ayarlandı (daha uzun bekleme, birkaç işlemde bir mola).",
+            actionRateLimitedStop: "Instagram kaldırma/takipten çıkarmayı sınırladı. Bu tur durduruluyor.\nTekrar denemeden önce daha uzun bekleyin.",
             fAll: "Tümü",
             fNonFollowers: "Takip Etmeyenler",
             fMutuals: "Takip Edenler (Karşılıklı)",
@@ -143,14 +151,18 @@
             selectAll: "Seleccionar Todo",
             emptyList: "Empieza a escanear para ver la lista aquí.",
             confirmUnfollow: "¿Estás seguro de que quieres dejar de seguir a los usuarios seleccionados?\n\nNo cierres la página durante el proceso.",
-            confirmRemove: "¿Estás seguro de que quieres quitar a los seguidores seleccionados?\n\nNo cierres la página durante el proceso.",
+            confirmRemove: "¿Quitar ahora como máximo {n} seguidores seleccionados?\n\nUsa lotes pequeños. No cierres la página.",
             privateRequired: "Instagram solo permite quitar seguidores en cuentas privadas.\n\nPon tu cuenta en Privada en Ajustes y vuelve a escanear.\n(Las cuentas públicas solo pueden bloquear.)",
             processDone: "¡Proceso completado!\nCon éxito: ",
             scanCooldown: "Límite de Instagram. Esperando {s}s y reintentando...",
             scanPagePause: "Pausa de {s}s para evitar límites...",
-            scanPartialFollowers: "Instagram limitó el escaneo de seguidores.\n\nSe continúa con los {n} seguidores cargados hasta ahora. Mutuos / fans pueden estar incompletos. Espera unos minutos antes de volver a escanear.",
+            scanPartialFollowers: "Instagram limitó el escaneo de seguidores.\n\nSe continúa con los {n} seguidores cargados hasta ahora. NO vuelvas a escanear aún. Espera varias horas y quita seguidores en lotes pequeños desde esta lista.",
             scanBlocked: "Instagram sigue bloqueando el escaneo de listas en esta cuenta (Try again later).\n\nEspera unos {m} minutos, deja esta pestaña abierta en Instagram y pulsa Escanear de nuevo.\nReintentar cada poco alarga el bloqueo.",
             scanBlockedWait: "Escaneo bloqueado. Prueba de nuevo en unos {m} min.",
+            actionBlocked: "El enfriamiento de Instagram sigue activo.\n\nEspera unos {m} minutos antes de quitar o dejar de seguir.\nNo vuelvas a escanear ahora.",
+            batchTooLarge: "Seleccionaste {selected} personas. En quitar seguidores solo se procesarán las primeras {n} de este lote.\n\n¿Continuar con {n}?",
+            removeSafeDefaults: "Quitar seguidores usa un ritmo más seguro (más espera, pausa cada pocas acciones).",
+            actionRateLimitedStop: "Instagram limitó quitar/dejar de seguir. Se detiene este lote.\nEspera más tiempo antes de intentarlo otra vez.",
             fAll: "Todos",
             fNonFollowers: "No Seguidores",
             fMutuals: "Mutuos",
@@ -422,6 +434,19 @@
     const autoPauseCountInput = createInput(els.pauseCountL, 'pauseCount', 50);
     const autoPauseDurationInput = createInput(els.pauseDurationL, 'pauseDuration', 300);
 
+    const REMOVE_BATCH_LIMIT = 15;
+    let removeDefaultsApplied = false;
+    function applyRemoveSafeDefaults() {
+        if (removeDefaultsApplied) return;
+        // Safer pacing for follower removals; only raise values, never lower user settings
+        if ((parseInt(minDelayInput.value, 10) || 0) < 8) minDelayInput.value = 8;
+        if ((parseInt(maxDelayInput.value, 10) || 0) < 15) maxDelayInput.value = 15;
+        if ((parseInt(autoPauseCountInput.value, 10) || 999) > 5) autoPauseCountInput.value = 5;
+        if ((parseInt(autoPauseDurationInput.value, 10) || 0) < 300) autoPauseDurationInput.value = 300;
+        removeDefaultsApplied = true;
+        dbg('applied remove safe defaults');
+    }
+
     // Unfollow Action Panel
     const actionPanel = document.createElement('div');
     actionPanel.style.cssText = 'background-color: #18181b; border: 1px solid #ed143d; border-radius: 12px; padding: 20px; margin-top: auto;';
@@ -481,10 +506,11 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.3.4 loaded, user ' + userId + ', ajax ' + rolloutHash);
+    dbg('Munfollow 4.3.5 loaded, user ' + userId + ', ajax ' + rolloutHash);
 
     const RATE_LIMIT_KEY = 'munfollow_rate_limited_until';
     const RATE_LIMIT_COOLDOWN_MS = 20 * 60 * 1000;
+    const ACTION_RATE_LIMIT_COOLDOWN_MS = 45 * 60 * 1000;
 
     function getRateLimitUntil() {
         try {
@@ -624,7 +650,13 @@
         }
     }
 
-    filterSelect.addEventListener('change', applyFilterAndSort);
+    filterSelect.addEventListener('change', () => {
+        if (isFansNotFollowedFilter()) {
+            applyRemoveSafeDefaults();
+            dbg(t('removeSafeDefaults'));
+        }
+        applyFilterAndSort();
+    });
     sortSelect.addEventListener('change', applyFilterAndSort);
 
     function renderList() {
@@ -786,10 +818,13 @@
             try { json = JSON.parse(raw); } catch (e) { json = null; }
         }
         const short = url.replace('https://www.instagram.com/', '');
+        const rateLimited = isRateLimitResponse(res.status, raw);
+        if (rateLimited) markRateLimited(ACTION_RATE_LIMIT_COOLDOWN_MS);
         return {
             res,
             raw,
             json,
+            rateLimited,
             label: `${short} HTTP ${res.status} ${(raw || '').slice(0, 120)}`,
             jsonOk: !!(json && (json.status === 'ok' || json.friendship_status || json.friendship_statuses))
         };
@@ -1092,30 +1127,52 @@
     els.unfollowBtn.addEventListener('click', async () => {
         if (isUnfollowing || selectedUserIds.size === 0) return;
 
+        const blockedUntil = getRateLimitUntil();
+        if (blockedUntil > Date.now()) {
+            alert(t('actionBlocked').replace('{m}', String(minutesLeft(blockedUntil))));
+            return;
+        }
+
         const removeMode = isFansNotFollowedFilter();
         if (removeMode) {
+            applyRemoveSafeDefaults();
             const isPrivate = await fetchViewerIsPrivate();
             if (isPrivate === false) {
                 alert(t('privateRequired'));
                 return;
             }
         }
-        if (!confirm(removeMode ? t('confirmRemove') : t('confirmUnfollow'))) return;
+
+        let usersToProcess = Array.from(selectedUserIds);
+        if (removeMode && usersToProcess.length > REMOVE_BATCH_LIMIT) {
+            if (!confirm(t('batchTooLarge')
+                .replace(/\{selected\}/g, String(usersToProcess.length))
+                .replace(/\{n\}/g, String(REMOVE_BATCH_LIMIT)))) {
+                return;
+            }
+            usersToProcess = usersToProcess.slice(0, REMOVE_BATCH_LIMIT);
+        }
+
+        const confirmMsg = removeMode
+            ? t('confirmRemove').replace(/\{n\}/g, String(usersToProcess.length))
+            : t('confirmUnfollow');
+        if (!confirm(confirmMsg)) return;
 
         isUnfollowing = true;
         els.unfollowBtn.disabled = true;
         selectAllCheckbox.disabled = true;
         updateTranslations();
 
-        const minDelay = parseInt(minDelayInput.value) || 3;
-        const maxDelay = parseInt(maxDelayInput.value) || 8;
-        const pauseCount = parseInt(autoPauseCountInput.value) || 50;
+        const minDelay = parseInt(minDelayInput.value) || (removeMode ? 8 : 3);
+        const maxDelay = parseInt(maxDelayInput.value) || (removeMode ? 15 : 8);
+        const pauseCount = parseInt(autoPauseCountInput.value) || (removeMode ? 5 : 50);
         const pauseDuration = parseInt(autoPauseDurationInput.value) || 300;
 
-        const usersToProcess = Array.from(selectedUserIds);
         let processedCount = 0;
         let rejectedCount = 0;
         let firstReject = '';
+        let stoppedForRateLimit = false;
+        const batchSuccessStart = successCount;
 
         progressContainer.style.display = 'block';
         progressBar.style.width = '0%';
@@ -1133,6 +1190,7 @@
                 // working browser path is /web/friendships/{id}/remove_follower/
                 const attempts = [];
                 let ok = false;
+                let hitRateLimit = false;
 
                 if (removeFollower) {
                     const removeAttempts = [
@@ -1144,6 +1202,10 @@
                     for (const attempt of removeAttempts) {
                         const result = await postFriendshipAction(attempt.url, uid, attempt.body);
                         attempts.push(result.label);
+                        if (result.rateLimited) {
+                            hitRateLimit = true;
+                            break;
+                        }
                         if (result.jsonOk) {
                             ok = true;
                             break;
@@ -1158,7 +1220,16 @@
                         `container_module=profile&nav_chain=&user_id=${uid}`
                     );
                     attempts.push(result.label);
+                    hitRateLimit = !!result.rateLimited;
                     ok = result.jsonOk;
+                }
+
+                if (hitRateLimit) {
+                    stoppedForRateLimit = true;
+                    rejectedCount++;
+                    if (!firstReject) firstReject = attempts.join(' | ');
+                    dbg(`${actionName} ${uid} -> RATE_LIMITED :: ${attempts.join(' | ')}`);
+                    break;
                 }
 
                 // 200 / JSON yetmiyor, show ile gercek durum okunur
@@ -1167,6 +1238,13 @@
                 const showRaw = await showRes.text();
                 let show = null;
                 try { show = JSON.parse(showRaw); } catch (e) {}
+                if (isRateLimitResponse(showRes.status, showRaw)) {
+                    markRateLimited(ACTION_RATE_LIMIT_COOLDOWN_MS);
+                    stoppedForRateLimit = true;
+                    rejectedCount++;
+                    if (!firstReject) firstReject = `show rate-limited ${showRaw.slice(0, 160)}`;
+                    break;
+                }
                 if (removeFollower) {
                     if (show && typeof show.followed_by === 'boolean') ok = show.followed_by === false;
                 } else if (show && typeof show.following === 'boolean') {
@@ -1208,6 +1286,8 @@
             progressBar.style.width = `${(processedCount / usersToProcess.length) * 100}%`;
             updateStats();
 
+            if (stoppedForRateLimit) break;
+
             if (i < usersToProcess.length - 1) {
                 if ((i + 1) % pauseCount === 0) {
                     els.unfollowBtn.dataset.paused = "true";
@@ -1227,8 +1307,16 @@
         updateTranslations();
         updateStats(); // To reset unfollow button state based on remaining selections
 
-        setTimeout(() => alert(t('processDone') + successCount
-            + (rejectedCount ? `\nRejected: ${rejectedCount}\nFirst response: ${firstReject}` : '')), 500);
+        const batchOk = successCount - batchSuccessStart;
+        setTimeout(() => {
+            if (stoppedForRateLimit) {
+                alert(t('actionRateLimitedStop') + `\n\n${t('processDone')}${batchOk}`
+                    + (rejectedCount ? `\nRejected: ${rejectedCount}\nFirst response: ${firstReject}` : ''));
+            } else {
+                alert(t('processDone') + successCount
+                    + (rejectedCount ? `\nRejected: ${rejectedCount}\nFirst response: ${firstReject}` : ''));
+            }
+        }, 500);
     });
 
 })();
