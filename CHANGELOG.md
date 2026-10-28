@@ -22,6 +22,12 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
   Instagram answers with HTTP 404. It now calls
   `/api/v1/friendships/remove_follower/{id}/`, with the legacy
   `/web/friendships/{id}/remove_follower/` path as a fallback.
+- Remove-follower still failed with HTTP 200 HTML: the API path returns the
+  Instagram page shell, and HTML was treated as success so the working
+  `/web/friendships/{id}/remove_follower/` path never ran. Prefer that web
+  path, accept only JSON responses, and stop with a clear message when the
+  logged-in account is public (Instagram only allows remove-follower on
+  private accounts).
 
 ### Changed
 
