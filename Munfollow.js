@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.3.1 (Multi-language, Filters, Sorting, Fans Not Followed)
+ * Version: 4.3.2 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -40,6 +40,7 @@
             emptyList: "Start scanning to see the list here.",
             confirmUnfollow: "Are you sure you want to unfollow the selected users?\n\nDo not close the page during the process.",
             confirmRemove: "Are you sure you want to remove the selected followers?\n\nDo not close the page during the process.",
+            privateRequired: "Instagram only lets private accounts remove followers.\n\nSet your account to Private in Settings, then scan again.\n(Public accounts can only block people instead.)",
             processDone: "Process completed!\nSuccessfully processed: ",
             fAll: "All Following",
             fNonFollowers: "Non-Followers",
@@ -86,6 +87,7 @@
             emptyList: "Taramayı başlattığınızda kullanıcılar burada listelenecektir.",
             confirmUnfollow: "Seçilen kişileri takipten çıkmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
             confirmRemove: "Seçilen takipçileri kaldırmak istediğinize emin misiniz?\n\nİşlem sırasında sayfayı kapatmayın.",
+            privateRequired: "Instagram yalnızca gizli hesapların takipçi kaldırmasına izin verir.\n\nAyarlardan hesabını Gizli yap, sonra yeniden tara.\n(Açık hesaplar yalnızca engelleyebilir.)",
             processDone: "İşlem tamamlandı!\nBaşarıyla işlenen: ",
             fAll: "Tümü",
             fNonFollowers: "Takip Etmeyenler",
@@ -132,6 +134,7 @@
             emptyList: "Empieza a escanear para ver la lista aquí.",
             confirmUnfollow: "¿Estás seguro de que quieres dejar de seguir a los usuarios seleccionados?\n\nNo cierres la página durante el proceso.",
             confirmRemove: "¿Estás seguro de que quieres quitar a los seguidores seleccionados?\n\nNo cierres la página durante el proceso.",
+            privateRequired: "Instagram solo permite quitar seguidores en cuentas privadas.\n\nPon tu cuenta en Privada en Ajustes y vuelve a escanear.\n(Las cuentas públicas solo pueden bloquear.)",
             processDone: "¡Proceso completado!\nCon éxito: ",
             fAll: "Todos",
             fNonFollowers: "No Seguidores",
@@ -169,6 +172,16 @@
         alert('User info not found. Make sure you are logged into Instagram.');
         return;
     }
+
+    // Capture before wiping the DOM; web friendship POSTs need a real ajax hash
+    const rolloutHash = (() => {
+        try {
+            const html = document.documentElement.innerHTML;
+            const m = html.match(/"rollout_hash"\s*:\s*"([^"]+)"/);
+            if (m && m[1]) return m[1];
+        } catch (e) {}
+        return '1';
+    })();
 
     document.body.innerHTML = '';
     document.title = 'Munfollow - Massive Unfollow';
@@ -453,7 +466,7 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.3.1 loaded, user ' + userId);
+    dbg('Munfollow 4.3.2 loaded, user ' + userId + ', ajax ' + rolloutHash);
 
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
@@ -687,15 +700,59 @@
         updateStats();
     });
 
-    // Eski graphql query_hash ve /web/friendships uclari kaldirildi, api/v1 kullaniliyor
+    // Eski graphql query_hash kaldirildi; unfollow api/v1/web, remove_follower /web/friendships
     const apiHeaders = {
         'x-ig-app-id': '936619743392459',
         'x-csrftoken': csrfToken,
         'x-asbd-id': '129477',
         'x-requested-with': 'XMLHttpRequest',
-        'x-instagram-ajax': '1',
+        'x-instagram-ajax': rolloutHash,
         'x-ig-www-claim': (() => { try { return sessionStorage.getItem('www-claim-v2') || '0'; } catch (e) { return '0'; } })()
     };
+
+    let viewerIsPrivate = null;
+    async function fetchViewerIsPrivate() {
+        if (viewerIsPrivate !== null) return viewerIsPrivate;
+        try {
+            const res = await fetch(`https://www.instagram.com/api/v1/users/${userId}/info/`, { headers: apiHeaders, credentials: 'include' });
+            const raw = await res.text();
+            const json = JSON.parse(raw);
+            viewerIsPrivate = !!(json && json.user && json.user.is_private);
+            dbg(`viewer is_private=${viewerIsPrivate}`);
+            return viewerIsPrivate;
+        } catch (err) {
+            dbg('viewer privacy check failed: ' + err.message);
+            viewerIsPrivate = null;
+            return null;
+        }
+    }
+
+    function looksLikeHtml(raw) {
+        const s = (raw || '').trim().slice(0, 32).toLowerCase();
+        return s.startsWith('<!doctype') || s.startsWith('<html');
+    }
+
+    async function postFriendshipAction(url, uid, body) {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
+            body: body,
+            credentials: 'include'
+        });
+        const raw = await res.text();
+        let json = null;
+        if (!looksLikeHtml(raw)) {
+            try { json = JSON.parse(raw); } catch (e) { json = null; }
+        }
+        const short = url.replace('https://www.instagram.com/', '');
+        return {
+            res,
+            raw,
+            json,
+            label: `${short} HTTP ${res.status} ${(raw || '').slice(0, 120)}`,
+            jsonOk: !!(json && (json.status === 'ok' || json.friendship_status || json.friendship_statuses))
+        };
+    }
 
     let lastNetError = '';
     async function fetchFriendshipPage(type, maxId = '') {
@@ -786,6 +843,7 @@
         mutualsCount = 0;
         selectedUserIds.clear();
         closeFriendsIds.clear();
+        viewerIsPrivate = null;
         updateStats();
 
         await fetchCloseFriends();
@@ -883,6 +941,13 @@
         if (isUnfollowing || selectedUserIds.size === 0) return;
 
         const removeMode = isFansNotFollowedFilter();
+        if (removeMode) {
+            const isPrivate = await fetchViewerIsPrivate();
+            if (isPrivate === false) {
+                alert(t('privateRequired'));
+                return;
+            }
+        }
         if (!confirm(removeMode ? t('confirmRemove') : t('confirmUnfollow'))) return;
 
         isUnfollowing = true;
@@ -911,37 +976,42 @@
             const actionName = removeFollower ? 'remove_follower' : 'unfollow';
 
             try {
-                // unfollow: /api/v1/web/friendships/{id}/unfollow/
-                // remove_follower: /api/v1/friendships/remove_follower/{id}/ (web/.../remove_follower 404 doner)
-                const endpoints = removeFollower
-                    ? [
-                        `https://www.instagram.com/api/v1/friendships/remove_follower/${uid}/`,
-                        `https://www.instagram.com/web/friendships/${uid}/remove_follower/`
-                    ]
-                    : [
-                        `https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`
-                    ];
-
-                let ok = false;
-                let json = null;
+                // unfollow works on /api/v1/web/.../unfollow/
+                // remove_follower: /api/v1/friendships/remove_follower returns HTML shell on www;
+                // working browser path is /web/friendships/{id}/remove_follower/
                 const attempts = [];
-                for (const endpoint of endpoints) {
-                    const res = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
-                        body: `container_module=profile&nav_chain=&user_id=${uid}`,
-                        credentials: 'include'
-                    });
-                    const raw = await res.text();
-                    attempts.push(`${endpoint.split('/').slice(-3).join('/')} HTTP ${res.status} ${raw.slice(0, 160)}`);
-                    try { json = JSON.parse(raw); } catch (e) { json = null; }
-                    ok = res.ok && ((json && (json.status === 'ok' || json.friendship_status)) || (!json && res.status === 200));
-                    if (ok || res.status !== 404) break;
+                let ok = false;
+
+                if (removeFollower) {
+                    const removeAttempts = [
+                        { url: `https://www.instagram.com/web/friendships/${uid}/remove_follower/`, body: '' },
+                        { url: `https://www.instagram.com/web/friendships/${uid}/remove_follower/`, body: `user_id=${uid}` },
+                        { url: `https://www.instagram.com/api/v1/web/friendships/${uid}/remove_follower/`, body: `container_module=profile&user_id=${uid}` },
+                        { url: `https://www.instagram.com/api/v1/friendships/remove_follower/${uid}/`, body: `user_id=${uid}` }
+                    ];
+                    for (const attempt of removeAttempts) {
+                        const result = await postFriendshipAction(attempt.url, uid, attempt.body);
+                        attempts.push(result.label);
+                        if (result.jsonOk) {
+                            ok = true;
+                            break;
+                        }
+                        // HTML / empty: try next shape. Hard auth failures: stop.
+                        if (result.res.status === 401 || result.res.status === 403) break;
+                    }
+                } else {
+                    const result = await postFriendshipAction(
+                        `https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`,
+                        uid,
+                        `container_module=profile&nav_chain=&user_id=${uid}`
+                    );
+                    attempts.push(result.label);
+                    ok = result.jsonOk;
                 }
 
-                // 200 donmesi yetmiyor, show ile gercek durum okunur
+                // 200 / JSON yetmiyor, show ile gercek durum okunur
                 await sleep(1000);
-                const showRes = await fetch(`https://www.instagram.com/api/v1/friendships/show/${uid}/`, { headers: apiHeaders });
+                const showRes = await fetch(`https://www.instagram.com/api/v1/friendships/show/${uid}/`, { headers: apiHeaders, credentials: 'include' });
                 const showRaw = await showRes.text();
                 let show = null;
                 try { show = JSON.parse(showRaw); } catch (e) {}
