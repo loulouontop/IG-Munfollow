@@ -32,6 +32,10 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
   followers no longer abort with a hard error. Scanning is slower, retries
   with cool-downs on rate limits, and continues with partial results when
   Instagram still blocks.
+- When Instagram already blocks list scans (`followers: 0`), stop immediately
+  instead of short retries that keep the block active. Remember a ~20 minute
+  cool-down, move close-friends fetch off the scan start path, and show a
+  clear wait message.
 
 ### Changed
 
