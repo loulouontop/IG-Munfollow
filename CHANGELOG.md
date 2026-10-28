@@ -36,6 +36,9 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
   instead of short retries that keep the block active. Remember a ~20 minute
   cool-down, move close-friends fetch off the scan start path, and show a
   clear wait message.
+- Follower-removal guardrails: block remove/unfollow during cool-down, cap each
+  remove batch at 15, apply safer delays when using Followers Not Followed Back,
+  and stop the batch if Instagram returns `feedback_required` mid-run.
 
 ### Changed
 
