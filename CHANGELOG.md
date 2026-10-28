@@ -16,6 +16,13 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
   not follow, and removes selected accounts as followers (Instagram remove
   follower) instead of unfollowing.
 
+### Fixed
+
+- Remove-follower used `/api/v1/web/friendships/{id}/remove_follower/`, which
+  Instagram answers with HTTP 404. It now calls
+  `/api/v1/friendships/remove_follower/{id}/`, with the legacy
+  `/web/friendships/{id}/remove_follower/` path as a fallback.
+
 ### Changed
 
 - Repository renamed from `Munfollow` to `IG-Munfollow`. The old URL redirects,
