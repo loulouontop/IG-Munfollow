@@ -36,7 +36,7 @@
 ## ✨ Lo destacado
 
 - **No se instala nada y no se comparte la contraseña** - un solo script, pegado en tu propia consola en una página donde ya has iniciado sesión. No hay ninguna app por medio, así que no hay a quién entregar tus credenciales.
-- **Siete formas de dividir tu lista de seguidos** - todos, los que no te siguen de vuelta, los mutuos, las cuentas privadas, las verificadas, las que no tienen foto de perfil, y los mejores amigos.
+- **Ocho formas de dividir tus listas** - todos a quienes sigues, los que no te siguen de vuelta, los mutuos, las cuentas privadas, las verificadas, las que no tienen foto de perfil, los mejores amigos, y los seguidores a los que no sigues.
 - **Ordena por cuándo los seguiste** - de más reciente a más antiguo para revisar errores recientes, o al revés para limpiar a quienes seguiste hace años y olvidaste.
 - **Ritmo antibloqueo** - espera aleatoria entre acciones con mínimo y máximo configurables, más una pausa automática tras un número dado de dejadas de seguir.
 - **Estadísticas en vivo** - total escaneado, los que no te siguen, mutuos, seleccionados y un contador de dejadas de seguir con éxito.
@@ -106,6 +106,7 @@ Todo se ajusta en el panel, no se edita nada en el archivo.
 | Verified Accounts | Cuentas con la insignia de verificación |
 | No Profile Picture | Cuentas que nunca pusieron avatar, normalmente abandonadas o falsas |
 | Close Friends | Cuentas de tu lista de mejores amigos |
+| Followers Not Followed Back | Personas que te siguen y a las que no sigues; las filas seleccionadas se quitan como seguidores |
 
 ### Ordenación
 
