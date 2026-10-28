@@ -1,7 +1,7 @@
 /**
  * Munfollow - Massive Unfollow
  * Creator: https://github.com/Miabeyefendi/IG-Munfollow
- * Version: 4.3.0 (Multi-language, Filters, Sorting, Fans Not Followed)
+ * Version: 4.3.1 (Multi-language, Filters, Sorting, Fans Not Followed)
  */
 
 (function () {
@@ -453,7 +453,7 @@
         debugBox.value += line + '\n';
         debugBox.scrollTop = debugBox.scrollHeight;
     }
-    dbg('Munfollow 4.3.0 loaded, user ' + userId);
+    dbg('Munfollow 4.3.1 loaded, user ' + userId);
 
     function updateTranslations() {
         els.appTitle.textContent = t('appTitle');
@@ -911,20 +911,33 @@
             const actionName = removeFollower ? 'remove_follower' : 'unfollow';
 
             try {
-                const endpoint = removeFollower
-                    ? `https://www.instagram.com/api/v1/web/friendships/${uid}/remove_follower/`
-                    : `https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`;
-                // friendships/destroy 200 ile HTML donduruyor, calisan yol web/friendships/unfollow|remove_follower
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
-                    body: `container_module=profile&nav_chain=&user_id=${uid}`
-                });
-                const raw = await res.text();
-                const attempts = [`${actionName} HTTP ${res.status} ${raw.slice(0, 200)}`];
+                // unfollow: /api/v1/web/friendships/{id}/unfollow/
+                // remove_follower: /api/v1/friendships/remove_follower/{id}/ (web/.../remove_follower 404 doner)
+                const endpoints = removeFollower
+                    ? [
+                        `https://www.instagram.com/api/v1/friendships/remove_follower/${uid}/`,
+                        `https://www.instagram.com/web/friendships/${uid}/remove_follower/`
+                    ]
+                    : [
+                        `https://www.instagram.com/api/v1/web/friendships/${uid}/unfollow/`
+                    ];
+
+                let ok = false;
                 let json = null;
-                try { json = JSON.parse(raw); } catch (e) {}
-                let ok = res.ok && json && json.status === 'ok';
+                const attempts = [];
+                for (const endpoint of endpoints) {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { ...apiHeaders, 'content-type': 'application/x-www-form-urlencoded' },
+                        body: `container_module=profile&nav_chain=&user_id=${uid}`,
+                        credentials: 'include'
+                    });
+                    const raw = await res.text();
+                    attempts.push(`${endpoint.split('/').slice(-3).join('/')} HTTP ${res.status} ${raw.slice(0, 160)}`);
+                    try { json = JSON.parse(raw); } catch (e) { json = null; }
+                    ok = res.ok && ((json && (json.status === 'ok' || json.friendship_status)) || (!json && res.status === 200));
+                    if (ok || res.status !== 404) break;
+                }
 
                 // 200 donmesi yetmiyor, show ile gercek durum okunur
                 await sleep(1000);
