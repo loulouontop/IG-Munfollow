@@ -36,7 +36,7 @@
 ## ✨ Highlights
 
 - **Nothing is installed and no password is shared** - one script, pasted into your own browser console on a page you are already logged into. There is no app in the middle, so there is nothing to hand your credentials to.
-- **Seven ways to slice your following list** - everyone, non-followers, mutuals, private accounts, verified accounts, accounts with no profile picture, and close friends.
+- **Eight ways to slice your lists** - everyone you follow, non-followers, mutuals, private accounts, verified accounts, accounts with no profile picture, close friends, and followers you do not follow back.
 - **Sort by when you followed them** - newest first to review recent mistakes, or oldest first to clear out the people you followed years ago and forgot.
 - **Anti-ban pacing** - randomised delay between actions with a configurable floor and ceiling, plus an automatic pause after a set number of unfollows.
 - **Live statistics** - total scanned, non-followers, mutuals, selected, and a running count of successful unfollows.
@@ -106,6 +106,7 @@ Everything is set in the panel, nothing is edited in the file.
 | Verified Accounts | Accounts with the verified badge |
 | No Profile Picture | Accounts that never set an avatar, usually abandoned or fake |
 | Close Friends | Accounts on your close friends list |
+| Followers Not Followed Back | People who follow you that you do not follow; selected rows are removed as followers |
 
 ### Sorting
 

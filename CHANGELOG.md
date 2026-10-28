@@ -10,6 +10,12 @@ All notable changes to **IG-Munfollow** are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Filter **Followers Not Followed Back**: lists people who follow you that you do
+  not follow, and removes selected accounts as followers (Instagram remove
+  follower) instead of unfollowing.
+
 ### Changed
 
 - Repository renamed from `Munfollow` to `IG-Munfollow`. The old URL redirects,
